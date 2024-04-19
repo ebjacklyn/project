@@ -1,0 +1,128 @@
+---
+- name: setup flask environment
+  hosts: all
+  become: true
+  tasks:
+    - name: Install Git on Amazon Linux
+      dnf:
+        name: git
+        state: present
+      when: ansible_pkg_mgr == "dnf" and ansible_distribution == "Amazon"
+
+    - name: Debug Ansible facts for Amazon Linux
+      debug: 
+        var: ansible_pkg_mgr
+      when: ansible_distribution == "Amazon"
+
+    - name: Install Git on CentOS
+      yum:
+        name: git
+        state: present
+      when: ansible_pkg_mgr == "yum" and ansible_distribution == "CentOS"
+
+    - name: Install Git on Ubuntu
+      apt:
+        name: git
+        state: present
+      when: ansible_pkg_mgr == "apt"
+
+    - name: install necessary packages for dnf (Amazon Linux)
+      dnf:
+        name:
+          - python3-pip
+          - python3-devel
+          - git
+        state: present
+      when: ansible_pkg_mgr == "yum" and ansible_distribution == "Amazon"
+
+    - name: install necessary packages for yum (CentOS)
+      yum:
+        name:
+          - python3-pip
+          - python3-devel
+          - git
+        state: present
+      when: ansible_pkg_mgr == "yum" and ansible_distribution == "CentOS"
+
+    - name: install necessary packages for apt (Ubuntu)
+      apt:
+        name:
+          - python3-pip
+          - python3-dev
+          - build-essential
+          - git
+          - ufw
+        state: present
+      when: ansible_pkg_mgr == "apt"
+
+    - name: Create flask directory for Amazon Linux
+      file:
+        path: ~/flask_dir
+        state: directory
+        mode: 0777
+        owner: ec2-user
+        group: ec2-user
+      when: ansible_pkg_mgr == "yum" and ansible_distribution == "Amazon"
+
+    - name: Create flask directory for CentOS
+      file:
+        path: ~/flask_dir
+        state: directory
+        mode: 0777
+        owner: centos
+        group: centos
+      when: ansible_pkg_mgr == "yum" and ansible_distribution == "CentOS"
+
+    - name: Create flask directory for Ubuntu
+      file:
+        path: ~/flask_dir
+        state: directory
+        mode: 0777
+        owner: ubuntu
+        group: ubuntu
+      when: ansible_pkg_mgr == "apt"
+
+    - name: remove existing flask_dir
+      file:
+        path: ~/flask_dir
+        state: absent
+      ignore_errors: yes
+
+    - name: clone git repository
+      git: 
+        repo: https://github.com/ctoweh/flask_web_app.git
+        dest: ~/flask_dir/
+        version: main
+
+    - name: create virtual environment (Amazon Linux)
+      command: python3 -m venv ~/flask_dir/.myenv
+      args:
+        chdir: "~/"
+      when: ansible_pkg_mgr == "yum" and ansible_distribution == "Amazon"
+
+    - name: create virtual environment (CentOS)
+      command: python3 -m venv ~/flask_dir/.myenv
+      args:
+        chdir: "~/"
+      when: ansible_pkg_mgr == "yum" and ansible_distribution == "CentOS"
+
+    - name: create virtual environment (Ubuntu)
+      command: python3 -m venv ~/flask_dir/.myenv
+      args:
+        chdir: "~/"
+      when: ansible_pkg_mgr == "apt"
+
+    - name: install flask using pip
+      pip:
+        name: flask
+        executable: ~/flask_dir/.myenv/bin/pip
+        state: present
+    
+    - name: start flask app
+      command: /bin/bash -c "export FLASK_APP=~/flask_dir/app.py && ~/flask_dir/.myenv/bin/flask run --host=0.0.0.0 --port=5000 --port=8080 "
+
+    - name: restart flask server
+      command: "pkill -f 'python3 app.py' && nohup python3 ~/flask_dir/.myenv/bin/flask run --host=0.0.0.0 --port=5000 --port=8080 "
+      async: 30
+      poll: 0
+      become: yes
